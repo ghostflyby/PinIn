@@ -25,7 +25,20 @@ public class Char implements Element {
 
     @Override
     public IndexSet match(String str, int start, boolean partial) {
-        IndexSet ret = (str.codePointAt(start) == ch ? IndexSet.ONE : IndexSet.NONE).copy();
+        IndexSet ret = new IndexSet();
+        if (start < str.length()) {
+            char first = str.charAt(start);
+            int codePoint = first;
+            int consumed = 1;
+            if (Character.isHighSurrogate(first) && start + 1 < str.length()) {
+                char second = str.charAt(start + 1);
+                if (Character.isLowSurrogate(second)) {
+                    codePoint = Character.toCodePoint(first, second);
+                    consumed = 2;
+                }
+            }
+            if (codePoint == ch) ret.set(consumed);
+        }
         for (Element p : pinyin) ret.merge(p.match(str, start, partial));
         return ret;
     }

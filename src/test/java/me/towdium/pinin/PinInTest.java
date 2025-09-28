@@ -85,7 +85,7 @@ public class PinInTest {
     private <T> float time(int repeat, Collection<T> objs, Consumer<T> consumer) {
         long time = System.currentTimeMillis();
         for (int j = 0; j < repeat; j++) {
-            for (T i: objs) {
+            for (T i : objs) {
                 consumer.accept(i);
             }
         }
@@ -327,5 +327,25 @@ public class PinInTest {
         searcher.put("\uE900锭", 0);
         assert searcher.search("lu2d").contains(0);
         assert p.contains("\uE900", "lu2");
+    }
+
+    @Test
+    public void dictUnicodeExtended() {
+        PinIn p = new PinIn();
+        TreeSearcher<Integer> searcher = new TreeSearcher<>(CONTAIN, p);
+        searcher.put("𫟼锭", 0);
+        assert !searcher.search("da2d").contains(0);
+        assert !p.contains("𫟼", "da2");
+
+        p = new PinIn(new DictLoader.Default() {
+            @Override
+            public void loadCodePoints(CodePointConsumer feed) {
+                feed.accept("𫟼".codePointAt(0), new String[]{"da2"});
+            }
+        });
+        searcher = new TreeSearcher<>(CONTAIN, p);
+        searcher.put("𫟼锭", 0);
+        assert searcher.search("da2d").contains(0);
+        assert p.contains("𫟼", "da2");
     }
 }

@@ -33,9 +33,23 @@ public class CachedSearcher<T> extends SimpleSearcher<T> {
     @Override
     public void put(String name, T identifier) {
         reset();
-        for (int i = 0; i < name.length(); i++)
-            context.getChar(name.charAt(i));
-        total += name.length();
+        int length = 0;
+        for (int i = 0; i < name.length(); ) {
+            char first = name.charAt(i);
+            if (Character.isHighSurrogate(first) && i + 1 < name.length()) {
+                char second = name.charAt(i + 1);
+                if (Character.isLowSurrogate(second)) {
+                    context.getChar(Character.toCodePoint(first, second));
+                    i += 2;
+                    length += 2;
+                    continue;
+                }
+            }
+            context.getChar(first);
+            i++;
+            length++;
+        }
+        total += length;
         all.add(all.size());
         lenCached = 0;
         maxCached = 0;

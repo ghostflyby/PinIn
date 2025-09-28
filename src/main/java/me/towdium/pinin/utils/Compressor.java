@@ -27,7 +27,12 @@ public class Compressor implements Accelerator.Provider {
     }
 
     @Override
-    public char get(int i) {
-        return chars.getChar(i);
+    public int get(int i) {
+        char first = chars.getChar(i);
+        if (Character.isHighSurrogate(first) && i + 1 < chars.size()) {
+            char second = chars.getChar(i + 1);
+            if (Character.isLowSurrogate(second)) return Character.toCodePoint(first, second);
+        }
+        return first;
     }
 }
