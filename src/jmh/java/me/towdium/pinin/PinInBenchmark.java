@@ -1,12 +1,11 @@
 package me.towdium.pinin;
 
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntSet;
 import me.towdium.pinin.searchers.CachedSearcher;
 import me.towdium.pinin.searchers.Searcher;
 import me.towdium.pinin.searchers.SimpleSearcher;
 import me.towdium.pinin.searchers.TreeSearcher;
 import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.infra.Blackhole;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -20,7 +19,8 @@ import java.util.function.Function;
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
-@Warmup(iterations = 1)
+@Warmup(iterations = 1, time = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
 @Fork(1)
 public class PinInBenchmark {
 
@@ -36,11 +36,12 @@ public class PinInBenchmark {
     public String dataset;
     @Param({"BEGIN", "CONTAIN", "EQUAL"})
     public Searcher.Logic logic;
+//    @Param({"TREE", "CACHED", "SIMPLE"})
+//    SearcherKind searcherKind;
     List<String> data;
     Searcher<Integer> tree;
     Searcher<Integer> cached;
     Searcher<Integer> simple;
-
     PinIn pinIn;
 
     private static List<String> loadTestData(String source) {
@@ -68,51 +69,25 @@ public class PinInBenchmark {
     }
 
     @Benchmark
-    public void containsSearch() {
-        for (var s : search) {
-            @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
-            IntSet result = new IntOpenHashSet();
-            for (int i = 0; i < data.size(); i++) {
-                String in = data.get(i);
-                if (logic.raw(in, s)) result.add(i);
-            }
-        }
+    public void treeSearcher(Blackhole blackhole) {
+        benchmarkSearcher(tree, blackhole);
     }
 
     @Benchmark
-    public void loopSearch() {
-        for (var s : search) {
-            @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
-            IntSet result = new IntOpenHashSet();
-            for (int i = 0; i < data.size(); i++) {
-                String in = data.get(i);
-                if (logic.test(pinIn, in, s)) result.add(i);
-            }
-        }
+    public void cachedSearcher(Blackhole blackhole) {
+        benchmarkSearcher(cached, blackhole);
     }
 
     @Benchmark
-    public int treeSearcher() {
-        return benchmarkSearcher(tree);
+    public void simpleSearcher(Blackhole blackhole) {
+        benchmarkSearcher(simple, blackhole);
     }
 
-    @Benchmark
-    public int cachedSearcher() {
-        return benchmarkSearcher(cached);
-    }
-
-    @Benchmark
-    public int simpleSearcher() {
-        return benchmarkSearcher(simple);
-    }
-
-    private int benchmarkSearcher(Searcher<Integer> searcher) {
-        IntSet result = new IntOpenHashSet();
+    private void benchmarkSearcher(Searcher<Integer> searcher, Blackhole blackhole) {
         for (String token : search) {
             List<Integer> indices = searcher.search(token);
-            result.addAll(indices);
+            blackhole.consume(indices);
         }
-        return result.size();
     }
 
     private Searcher<Integer> createSearcher(Function<Searcher.Logic, Searcher<Integer>> factory,
