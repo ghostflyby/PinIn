@@ -55,6 +55,7 @@ dependencies {
     implementation 'it.unimi.dsi:fastutil:8.3.0'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.7.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.openjdk.jol:jol-core:0.17'
 }
 
 compileJava   {

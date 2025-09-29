@@ -1,12 +1,16 @@
 package me.towdium.pinin;
 
 import me.towdium.pinin.elements.Char;
+import me.towdium.pinin.elements.Element;
 import me.towdium.pinin.elements.Pinyin;
 import me.towdium.pinin.searchers.Searcher;
 import me.towdium.pinin.searchers.SimpleSearcher;
 import me.towdium.pinin.searchers.TreeSearcher;
+import me.towdium.pinin.utils.IndexSet;
 import me.towdium.pinin.utils.PinyinFormat;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.Collection;
