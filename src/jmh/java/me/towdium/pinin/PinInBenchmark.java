@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -36,7 +38,7 @@ public class PinInBenchmark {
     public String dataset;
     @Param({"BEGIN", "CONTAIN", "EQUAL"})
     public Searcher.Logic logic;
-//    @Param({"TREE", "CACHED", "SIMPLE"})
+    //    @Param({"TREE", "CACHED", "SIMPLE"})
 //    SearcherKind searcherKind;
     List<String> data;
     Searcher<Integer> tree;
@@ -47,8 +49,12 @@ public class PinInBenchmark {
     private static List<String> loadTestData(String source) {
         String line;
         List<String> data = new ArrayList<>();
-        InputStream is = PinInBenchmark.class.getResourceAsStream(source + ".txt");
-        if (is == null) throw new IllegalStateException("Missing dataset: " + source);
+        InputStream is;
+        try {
+            is = Files.newInputStream(Paths.get("src/test/resources/me/towdium/pinin").resolve(source + ".txt"));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         try (BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
             while ((line = br.readLine()) != null) {
                 if (!line.isEmpty()) data.add(line);
