@@ -70,5 +70,5 @@ jobs:
           
           gh release create $VERSION \
             --draft \
-            --title $VERSION
+            --title $VERSION \
             --notes-file $RELEASE_NOTE
