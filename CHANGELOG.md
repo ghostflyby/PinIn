@@ -1,24 +1,38 @@
 # PinIn Changelog
 
-## [Unreleased]
+## Unreleased
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## 1.7.1 - 2025-09-30
 
 ### Added
 
 - Support for matching characters in the Unicode Supplementary Planes.
 
-## [1.4.0]
+## 1.4.0
 
 ### Changed
 
 - Simplified format API for easier usage.
 
-## [1.3.1]
+## 1.3.1
 
 ### Fixed
 
 - `DictLoader` accessibility issue.
 
-## [1.3.0]
+## 1.3.0
 
 ### Added
 
@@ -32,7 +46,7 @@
 
 - Incorrect spelling in Phonetic keyboard starting with `v`.
 
-## [1.2.0]
+## 1.2.0
 
 ### Changed
 
