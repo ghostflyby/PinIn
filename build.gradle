@@ -1,6 +1,7 @@
 plugins {
-    id 'com.github.johnrengelman.shadow' version '6.1.0'
     id 'java'
+    id "me.champeau.jmh" version "0.7.3"
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 repositories {
@@ -9,7 +10,7 @@ repositories {
 
 build.dependsOn shadowJar
 
-version= "1.6.0"
+version = "1.6.0"
 group = "me.towdium.pinin"
 
 shadowJar {
@@ -47,17 +48,29 @@ test {
     testLogging.showStandardStreams = true
 }
 
-tasks.withType(JavaCompile) {
+tasks.withType(JavaCompile).configureEach {
     options.encoding = "UTF-8"
 }
 
 dependencies {
-    compile 'it.unimi.dsi:fastutil:8.3.0'
-    testCompile 'org.junit.jupiter:junit-jupiter-api:5.4.0'
-    testRuntime 'org.junit.jupiter:junit-jupiter-engine:5.4.0'
+    implementation 'it.unimi.dsi:fastutil:8.3.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.7.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.openjdk.jol:jol-core:0.17'
+    jmhImplementation 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
+    jmhAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
 }
 
-compileJava   {
+jmh {
+    resultFormat = 'JSON'
+}
+
+tasks.compileJmhJava {
+    sourceCompatibility = '1.8'
+    targetCompatibility = '1.8'
+}
+
+compileJava {
     sourceCompatibility = '1.8'
     targetCompatibility = '1.8'
 }

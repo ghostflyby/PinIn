@@ -49,9 +49,15 @@ public class TreeSearcher<T> implements Searcher<T> {
     public void put(String name, T identifier) {
         ticket.renew();
         int pos = strs.put(name);
-        int end = logic == Logic.CONTAIN ? name.length() : 1;
-        for (int i = 0; i < end; i++)
-            root = root.put(this, pos + i, objects.size());
+        if (logic == Logic.CONTAIN) {
+            for (int i = 0; i < name.length(); ) {
+                root = root.put(this, pos + i, objects.size());
+                int consumed = Character.charCount(name.codePointAt(i));
+                i += consumed;
+            }
+        } else {
+            root = root.put(this, pos, objects.size());
+        }
         objects.add(identifier);
     }
 
@@ -113,11 +119,13 @@ public class TreeSearcher<T> implements Searcher<T> {
 
         private void cut(TreeSearcher<T> p, int offset) {
             NMap<T> insert = new NMap<>();
-            if (offset + 1 == end) insert.put(p.strs.get(offset), exit);
+            int codePoint = p.strs.get(offset);
+            int consumed = Character.charCount(codePoint);
+            if (offset + consumed == end) insert.putChild(codePoint, exit);
             else {
-                NSlice<T> half = new NSlice<>(offset + 1, end);
+                NSlice<T> half = new NSlice<>(offset + consumed, end);
                 half.exit = exit;
-                insert.put(p.strs.get(offset), half);
+                insert.putChild(codePoint, half);
             }
             exit = insert;
             end = offset;
@@ -129,9 +137,9 @@ public class TreeSearcher<T> implements Searcher<T> {
             else if (offset == p.acc.search().length()) {
                 if (p.logic != EQUAL) exit.get(p, ret);
             } else {
-                char ch = p.strs.get(this.start + start);
-                p.acc.get(ch, offset).foreach(i ->
-                        get(p, ret, offset + i, start + 1));
+                int codePoint = p.strs.get(this.start + start);
+                p.acc.get(codePoint, offset).foreach(i ->
+                        get(p, ret, offset + i, start + Character.charCount(codePoint)));
             }
         }
     }
@@ -176,18 +184,24 @@ public class TreeSearcher<T> implements Searcher<T> {
         }
 
         private int match(TreeSearcher<T> p) {
-            for (int i = 0; ; i++) {
-                char a = p.strs.get(data.getInt(0) + i);
+            int offset = 0;
+            for (; ; ) {
+                int base = data.getInt(0) + offset;
+                if (p.strs.end(base)) return offset;
+                int a = p.strs.get(base);
+                int consumed = Character.charCount(a);
                 for (int j = 1; j < data.size() / 2; j++) {
-                    char b = p.strs.get(data.getInt(j * 2) + i);
-                    if (a != b || a == '\0') return i;
+                    int other = data.getInt(j * 2) + offset;
+                    if (p.strs.end(other) || p.strs.get(other) != a) return offset;
                 }
+                offset += consumed;
             }
         }
     }
 
     public static class NMap<T> implements Node<T> {
-        Char2ObjectMap<Node<T>> children;
+        Char2ObjectMap<Node<T>> charChildren;
+        Int2ObjectMap<Node<T>> intChildren;
         IntSet leaves = new IntArraySet(1);
 
         @Override
@@ -195,53 +209,89 @@ public class TreeSearcher<T> implements Searcher<T> {
             if (p.acc.search().length() == offset) {
                 if (p.logic == EQUAL) ret.addAll(leaves);
                 else get(p, ret);
-            } else if (children != null) {
-                children.forEach((c, n) -> p.acc.get(c, offset)
-                        .foreach(i -> n.get(p, ret, offset + i)));
+            } else {
+                if (charChildren != null) {
+                    charChildren.char2ObjectEntrySet().forEach(entry ->
+                            p.acc.get(entry.getCharKey(), offset)
+                                    .foreach(i -> entry.getValue().get(p, ret, offset + i)));
+                }
+                if (intChildren != null) {
+                    intChildren.int2ObjectEntrySet().forEach(entry ->
+                            p.acc.get(entry.getIntKey(), offset)
+                                    .foreach(i -> entry.getValue().get(p, ret, offset + i)));
+                }
             }
         }
 
         @Override
         public void get(TreeSearcher<T> p, IntSet ret) {
             ret.addAll(leaves);
-            if (children != null) children.forEach((c, n) -> n.get(p, ret));
+            if (charChildren != null) charChildren.values().forEach(n -> n.get(p, ret));
+            if (intChildren != null) intChildren.values().forEach(n -> n.get(p, ret));
         }
 
         @Override
         public NMap<T> put(TreeSearcher<T> p, int name, int identifier) {
-            if (p.strs.get(name) == '\0') {
+            if (p.strs.end(name)) {
                 if (leaves.size() >= THRESHOLD && leaves instanceof IntArraySet)
                     leaves = new IntOpenHashSet(leaves);
                 leaves.add(identifier);
             } else {
-                init();
-                char ch = p.strs.get(name);
-                Node<T> sub = children.get(ch);
-                if (sub == null) put(ch, sub = new NDense<>());
-                sub = sub.put(p, name + 1, identifier);
-                children.put(ch, sub);
+                int codePoint = p.strs.get(name);
+                Node<T> sub = getChild(codePoint);
+                if (sub == null) {
+                    sub = new NDense<>();
+                    putChild(codePoint, sub);
+                }
+                int consumed = Character.charCount(codePoint);
+                sub = sub.put(p, name + consumed, identifier);
+                putChild(codePoint, sub);
             }
-            return !(this instanceof NAcc) && children != null && children.size() > 32 ?
+            return !(this instanceof NAcc) && childCount() > 32 ?
                     new NAcc<>(p, this) : this;
         }
 
-        private void put(char ch, Node<T> n) {
-            init();
-            if (children.size() >= THRESHOLD && children instanceof Char2ObjectArrayMap)
-                children = new Char2ObjectOpenHashMap<>(children);
-            children.put(ch, n);
+        private void putChild(int codePoint, Node<T> node) {
+            if (Character.isBmpCodePoint(codePoint)) {
+                if (charChildren == null) charChildren = new Char2ObjectArrayMap<>();
+                else if (charChildren.size() >= THRESHOLD && charChildren instanceof Char2ObjectArrayMap)
+                    charChildren = new Char2ObjectOpenHashMap<>(charChildren);
+                charChildren.put((char) codePoint, node);
+            } else {
+                if (intChildren == null) intChildren = new Int2ObjectArrayMap<>();
+                else if (intChildren.size() >= THRESHOLD && intChildren instanceof Int2ObjectArrayMap)
+                    intChildren = new Int2ObjectOpenHashMap<>(intChildren);
+                intChildren.put(codePoint, node);
+            }
         }
 
-        private void init() {
-            if (children == null) children = new Char2ObjectArrayMap<>();
+        Node<T> getChild(int codePoint) {
+            if (Character.isBmpCodePoint(codePoint))
+                return charChildren == null ? null : charChildren.get((char) codePoint);
+            else return intChildren == null ? null : intChildren.get(codePoint);
+        }
+
+        void forEachChildCodePoint(IntConsumer consumer) {
+            if (charChildren != null)
+                charChildren.keySet().forEach(consumer);
+            if (intChildren != null)
+                intChildren.keySet().forEach(consumer);
+        }
+
+        private int childCount() {
+            int count = 0;
+            if (charChildren != null) count += charChildren.size();
+            if (intChildren != null) count += intChildren.size();
+            return count;
         }
     }
 
     public static class NAcc<T> extends NMap<T> {
-        Map<Phoneme, CharSet> index = new Object2ObjectArrayMap<>();
+        Map<Phoneme, CodePointIndex> index = new Object2ObjectArrayMap<>();
 
         private NAcc(TreeSearcher<T> p, NMap<T> n) {
-            children = n.children;
+            charChildren = n.charChildren;
+            intChildren = n.intChildren;
             leaves = n.leaves;
             reload(p);
             p.naccs.add(this);
@@ -253,12 +303,19 @@ public class TreeSearcher<T> implements Searcher<T> {
                 if (p.logic == EQUAL) ret.addAll(leaves);
                 else get(p, ret);
             } else {
-                Node<T> n = children.get(p.acc.search().charAt(offset));
-                if (n != null) n.get(p, ret, offset + 1);
+                int searchCodePoint = p.acc.searchCodePoint(offset);
+                int consumed = Character.charCount(searchCodePoint);
+                Node<T> n = getChild(searchCodePoint);
+                if (n != null) n.get(p, ret, offset + consumed);
                 index.forEach((k, v) -> {
                     if (!k.match(p.acc.search(), offset, true).isEmpty()) {
-                        v.forEach((IntConsumer) i -> p.acc.get((char) i, offset)
-                                .foreach(j -> children.get((char) i).get(p, ret, offset + j)));
+                        v.forEach(i -> {
+                            Node<T> child = getChild(i);
+                            if (child != null) {
+                                p.acc.get(i, offset)
+                                        .foreach(j -> child.get(p, ret, offset + j));
+                            }
+                        });
                     }
                 });
             }
@@ -267,24 +324,44 @@ public class TreeSearcher<T> implements Searcher<T> {
         @Override
         public NAcc<T> put(TreeSearcher<T> p, int name, int identifier) {
             super.put(p, name, identifier);
-            index(p, p.strs.get(name));
+            if (!p.strs.end(name)) index(p, p.strs.get(name));
             return this;
         }
 
         public void reload(TreeSearcher<T> p) {
             index.clear();
-            children.keySet().forEach((IntConsumer) i -> index(p, (char) i));
+            forEachChildCodePoint(i -> index(p, i));
         }
 
-        private void index(TreeSearcher<T> p, char c) {
-            Char ch = p.context.getChar(c);
+        private void index(TreeSearcher<T> p, int codePoint) {
+            Char ch = p.context.getChar(codePoint);
             for (Pinyin py : ch.pinyins()) {
-                index.compute(py.phonemes()[0], (j, cs) -> {
-                    if (cs == null) return new CharArraySet();
-                    else if (cs instanceof CharArraySet && cs.size() >= THRESHOLD && !cs.contains(c))
-                        return new CharOpenHashSet(cs);
-                    else return cs;
-                }).add(c);
+                CodePointIndex bucket = index.computeIfAbsent(py.phonemes()[0], k -> new CodePointIndex());
+                bucket.add(codePoint);
+            }
+        }
+
+        private static class CodePointIndex {
+            CharSet chars;
+            IntSet ints;
+
+            void add(int codePoint) {
+                if (Character.isBmpCodePoint(codePoint)) {
+                    if (chars == null) chars = new CharArraySet();
+                    else if (chars instanceof CharArraySet && chars.size() >= THRESHOLD && !chars.contains((char) codePoint))
+                        chars = new CharOpenHashSet((CharCollection) chars);
+                    chars.add((char) codePoint);
+                } else {
+                    if (ints == null) ints = new IntArraySet();
+                    else if (ints instanceof IntArraySet && ints.size() >= THRESHOLD && !ints.contains(codePoint))
+                        ints = new IntOpenHashSet((IntCollection) ints);
+                    ints.add(codePoint);
+                }
+            }
+
+            void forEach(IntConsumer consumer) {
+                if (chars != null) chars.forEach(consumer);
+                if (ints != null) ints.forEach(consumer);
             }
         }
     }

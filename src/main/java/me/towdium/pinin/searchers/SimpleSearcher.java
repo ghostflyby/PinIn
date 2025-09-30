@@ -27,8 +27,19 @@ public class SimpleSearcher<T> implements Searcher<T> {
     @Override
     public void put(String name, T identifier) {
         strs.put(name);
-        for (int i = 0; i < name.length(); i++)
-            context.getChar(name.charAt(i));
+//        for (int i = 0; i < name.length(); ) {
+//            char first = name.charAt(i);
+//            if (Character.isHighSurrogate(first) && i + 1 < name.length()) {
+//                char second = name.charAt(i + 1);
+//                if (Character.isLowSurrogate(second)) {
+//                    context.getChar(Character.toCodePoint(first, second));
+//                    i += 2;
+//                    continue;
+//                }
+//            }
+//            context.getChar(first);
+//            i++;
+//        }
         objs.add(identifier);
     }
 

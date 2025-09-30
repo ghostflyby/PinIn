@@ -1,7 +1,7 @@
 package me.towdium.pinin;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import me.towdium.pinin.elements.Char;
-import me.towdium.pinin.elements.Element;
 import me.towdium.pinin.elements.Phoneme;
 import me.towdium.pinin.elements.Pinyin;
 import me.towdium.pinin.utils.Accelerator;
@@ -11,14 +11,13 @@ import me.towdium.pinin.utils.PinyinFormat;
 
 @SuppressWarnings("unused")
 public class PinIn {
-    private int total = 0;
-
-    private final Cache<String, Phoneme> phonemes = new Cache<>(s -> new Phoneme(s, this));
-    private final Cache<String, Pinyin> pinyins = new Cache<>(s -> new Pinyin(s, this, total++));
+    public final Cache<String, Phoneme> phonemes = new Cache<>(s -> new Phoneme(s, this));
     private final Char[] chars = new Char[Character.MAX_VALUE];
+    private final Int2ObjectArrayMap<Char> codePoints = new Int2ObjectArrayMap<>();
     private final Char.Dummy temp = new Char.Dummy();
     private final ThreadLocal<Accelerator> acc;
-
+    private int total = 0;
+    public final Cache<String, Pinyin> pinyins = new Cache<>(s -> new Pinyin(s, this, total++));
     private Keyboard keyboard = Keyboard.QUANPIN;
     private int modification = 0;
     private boolean fZh2Z = false;
@@ -50,6 +49,29 @@ public class PinIn {
                     pinyins[i] = getPinyin(ss[i]);
                 }
                 chars[c] = new Char(c, pinyins);
+            }
+        });
+        loader.loadCodePoints((cp, ss) -> {
+            if (ss == null) {
+                if (Character.isBmpCodePoint(cp)) {
+                    chars[cp] = null;
+                } else {
+                    codePoints.remove(cp);
+                }
+                return;
+            }
+
+            Pinyin[] pinyins = new Pinyin[ss.length];
+            for (int i = 0; i < ss.length; i++) {
+                pinyins[i] = getPinyin(ss[i]);
+            }
+
+            Char value = new Char(cp, pinyins);
+            if (Character.isBmpCodePoint(cp)) {
+                chars[cp] = value;
+                codePoints.remove(cp);
+            } else {
+                codePoints.put(cp, value);
             }
         });
     }
@@ -95,6 +117,19 @@ public class PinIn {
             return ret;
         } else {
             temp.set(c);
+            return temp;
+        }
+    }
+
+    public Char getChar(int codePoint) {
+        if (Character.isBmpCodePoint(codePoint)) {
+            return getChar((char) codePoint);
+        }
+        Char ret = codePoints.get(codePoint);
+        if (ret != null) {
+            return ret;
+        } else {
+            temp.set(codePoint);
             return temp;
         }
     }
@@ -181,8 +216,14 @@ public class PinIn {
         public static boolean contains(String s1, String s2, PinIn p) {
             if (s1.isEmpty()) return s1.contains(s2);
             else {
-                for (int i = 0; i < s1.length(); i++)
+                for (int i = 0; i < s1.length(); ) {
                     if (check(s1, i, s2, 0, p, true)) return true;
+                    char ch = s1.charAt(i);
+                    if (Character.isHighSurrogate(ch) && i + 1 < s1.length()
+                            && Character.isLowSurrogate(s1.charAt(i + 1))) {
+                        i += 2;
+                    } else i++;
+                }
                 return false;
             }
         }
@@ -194,14 +235,26 @@ public class PinIn {
 
         private static boolean check(String s1, int start1, String s2, int start2, PinIn p, boolean partial) {
             if (start2 == s2.length()) return partial || start1 == s1.length();
+            if (start1 >= s1.length()) return false;
 
-            Element r = p.getChar(s1.charAt(start1));
+            char first = s1.charAt(start1);
+            int consumed = 1;
+            int codePoint = first;
+            if (Character.isHighSurrogate(first) && start1 + 1 < s1.length()) {
+                char second = s1.charAt(start1 + 1);
+                if (Character.isLowSurrogate(second)) {
+                    codePoint = Character.toCodePoint(first, second);
+                    consumed = 2;
+                }
+            }
+            Char r = p.getChar(codePoint);
             IndexSet s = r.match(s2, start2, partial);
 
-            if (start1 == s1.length() - 1) {
+            int next = start1 + consumed;
+            if (next >= s1.length()) {
                 int i = s2.length() - start2;
                 return s.get(i);
-            } else return s.traverse(i -> check(s1, start1 + 1, s2, start2 + i, p, partial));
+            } else return s.traverse(i -> check(s1, next, s2, start2 + i, p, partial));
         }
     }
 
