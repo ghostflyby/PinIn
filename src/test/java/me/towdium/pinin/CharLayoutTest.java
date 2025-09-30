@@ -11,10 +11,10 @@ public class CharLayoutTest {
 
     @Test
     public void layout() {
-        var intBased = ClassLayout.parseClass(CharInt.class);
+        ClassLayout intBased = ClassLayout.parseClass(CharInt.class);
         System.out.println(intBased.toPrintable());
 
-        var charBased = ClassLayout.parseClass(CharChar.class);
+        ClassLayout charBased = ClassLayout.parseClass(CharChar.class);
         System.out.println(charBased.toPrintable());
 
         Assertions.assertEquals(intBased.instanceSize(), charBased.instanceSize());
