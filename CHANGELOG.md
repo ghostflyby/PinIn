@@ -3,7 +3,6 @@
 ## Unreleased
 
 ### Added
-- add extra unicode data from supplementary panes [#12](https://github.com/ghostflyby/PinIn/pull/12)
 
 ### Changed
 
@@ -14,6 +13,12 @@
 ### Fixed
 
 ### Security
+
+## 1.7.2 - 2025-10-03
+
+### Added
+
+- add extra unicode data from supplementary panes [#12](https://github.com/ghostflyby/PinIn/pull/12)
 
 ## 1.7.1 - 2025-09-30
 
