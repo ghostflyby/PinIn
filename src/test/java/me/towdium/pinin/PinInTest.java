@@ -214,18 +214,20 @@ public class PinInTest {
         PinIn p = new PinIn();
         TreeSearcher<Integer> searcher = new TreeSearcher<>(CONTAIN, p);
         searcher.put("𫟼锭", 0);
-        assert !searcher.search("da2d").contains(0);
-        assert !p.contains("𫟼", "da2");
+        assert searcher.search("da2d").contains(0);
+        assert p.contains("𫟼", "da2");
+        assert !searcher.search("ta2d").contains(0);
+        assert !p.contains("𫟼", "ta2");
 
         p = new PinIn(new DictLoader.Default() {
             @Override
             public void loadCodePoints(CodePointConsumer feed) {
-                feed.accept("𫟼".codePointAt(0), new String[]{"da2"});
+                feed.accept("𫟼".codePointAt(0), new String[]{"ta2"});
             }
         });
         searcher = new TreeSearcher<>(CONTAIN, p);
         searcher.put("𫟼锭", 0);
-        assert searcher.search("da2d").contains(0);
-        assert p.contains("𫟼", "da2");
+        assert searcher.search("ta2d").contains(0);
+        assert p.contains("𫟼", "ta2");
     }
 }
