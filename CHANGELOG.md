@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- add extra unicode data from supplementary panes [#12](https://github.com/ghostflyby/PinIn/pull/12)
 
 ### Changed
 
